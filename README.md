@@ -3,9 +3,8 @@
 A simple Java-based blockchain implementation with transaction support and proof-of-work consensus mechanism.
 
 <br/>
-<br/>
 
-#### Overview
+### Overview
 
 - This project demonstrates core blockchain concepts including:
 - Block creation and mining with adjustable difficulty
@@ -14,18 +13,16 @@ A simple Java-based blockchain implementation with transaction support and proof
 - Data persistence (currently file-based)
 
 <br/>
-<br/>
 
-#### Features
+### Features
 - Proof-of-Work mining algorithm
 - Transaction-based data structure
 - Chain integrity validation
 - JSON-based blockchain persistence
 
 <br/>
-<br/>
 
-#### Technologies
+### Technologies
 - Java
 - Maven
 - Lombok
@@ -33,9 +30,8 @@ A simple Java-based blockchain implementation with transaction support and proof
 - SLF4J for logging
 
 <br/>
-<br/>
 
-#### Current Implementation
+### Current Implementation
 
 The blockchain currently:
 
@@ -45,9 +41,10 @@ The blockchain currently:
 - Persists data to JSON files in src/main/resources/data/
 
 <br/>
-<br/>
 
-#### Mitigation to Database Storage
+### Mitigation to Database Storage
+
+<br/>
 
 ##### Step 1: Add dependencies
 
@@ -71,6 +68,8 @@ The blockchain currently:
 </dependencies>
 ```
 
+<br/>
+
 ##### Step 2: Create Database Entities
 
 Example of a simple block entity:
@@ -91,6 +90,8 @@ public class BlockEntity {
 }
 ```
 
+<br/>
+
 ##### Step 3: Create Repository Interfaces
 
 Example repository interface from Blockrepository:
@@ -100,6 +101,8 @@ Example repository interface from Blockrepository:
         List<BlockEntity> findAllByOrderByTimeStampAsc();
     }
 ```
+
+<br/>
 
 ##### Step 4: Create Service Class
 
@@ -124,11 +127,15 @@ public class BlockchainService {
 }
 ```
 
+<br/>
+
 ##### Step 5: Update Application to Use Service
 
 Replace current file operations in Main.java and BlockchainSave.java with calls to the new services.
 
-#### If you want to replicate project here is how to get started
+<br/>
+
+### If you want to replicate project here is how to get started
 
 ```bash
 git clone 
