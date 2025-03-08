@@ -44,9 +44,93 @@ The blockchain currently:
 - Validates blockchain integrity
 - Persists data to JSON files in src/main/resources/data/
 
+<br/>
+<br/>
+
+#### Mitigation to Database Storage
+
+##### Step 1: Add dependencies
+
+- Add spring boot framework and database (probably postgresql) dependencies to pom.xml
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <scope>runtime</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.postgresql</groupId>
+        <artifactId>postgresql</artifactId>
+    </dependency>
+</dependencies>
+```
+
+##### Step 2: Create Database Entities
+
+Example of a simple block entity:
+
+```java
+@Entity
+@Table(name = "blocks")
+public class BlockEntity {
+    @Id
+    private String hash;
+    private String previousHash;
+    @Column(length = 10000)
+    private String data;
+    private long timeStamp;
+    private int nonce;
+
+    // Getters, setters, constructors
+}
+```
+
+##### Step 3: Create Repository Interfaces
+
+Example repository interface from Blockrepository:
+
+```java
+    public interface BlockRepository extends JpaRepository<BlockEntity, String> {
+        List<BlockEntity> findAllByOrderByTimeStampAsc();
+    }
+```
+
+##### Step 4: Create Service Class
+
+Example of Block service class:
+
+```java
+@Service
+public class BlockchainService {
+    @Autowired
+    private BlockRepository blockRepository;
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    // Methods for saving/loading blockchain
+    public void saveBlock(Block block) {
+   
+    }
+
+    public List<Block> loadBlockchain() {
+        // Load blocks from DB and reconstruct chain
+    }
+}
+```
+
+##### Step 5: Update Application to Use Service
+
+Replace current file operations in Main.java and BlockchainSave.java with calls to the new services.
+
 #### If you want to replicate project here is how to get started
 
-```
+```bash
 git clone 
 cd blockchain
 mvn clean install
