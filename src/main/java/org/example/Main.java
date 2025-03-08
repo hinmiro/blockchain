@@ -16,14 +16,15 @@ public class Main {
     public static BigInteger i = new BigInteger("0");
 
     private static BigInteger increment() {
-        return i.add(BigInteger.ONE);
+        i = i.add(BigInteger.ONE);
+        return i;
     }
 
     private static boolean isChainValid() {
         Block currentBlock;
         Block previousBlock;
 
-        for (int j = 0; j < blockchain.size(); j++) {
+        for (int j = 1; j < blockchain.size(); j++) {
             currentBlock = blockchain.get(j);
             previousBlock = blockchain.get(j-1);
 
@@ -41,7 +42,7 @@ public class Main {
 
 
     public static void main(String[] args) {
-        blockchain.add(new Block("0", new Data(new Transaction(i.add(BigInteger.ONE), "Mizard", "Sinzuu", 2.54))));
+        blockchain.add(new Block("0", new Data(new Transaction(increment(), "Mizard", "Sinzuu", 2.54))));
         isChainValid();
         blockchain.add(new Block(blockchain.getLast().getHash(), new Data(new Transaction(increment(), "Sinzuu", "Roope Ankka", 4.56))));
         isChainValid();
