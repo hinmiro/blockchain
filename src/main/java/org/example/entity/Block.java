@@ -44,8 +44,8 @@ public class Block {
         StringBuilder transactionData = new StringBuilder();
         for (Transaction tx : transactions) {
             transactionData.append(tx.getSender())
-                    .append(tx.getReceiver())
-                    .append(tx.getAmount())
+                    .append(tx.getRecipient())
+                    .append(tx.getValue())
                     .append(tx.getTimestamp());
         }
 

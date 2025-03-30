@@ -30,8 +30,13 @@ public class Transaction {
     private long timestamp;
     private byte[] signature;
 
-    private ArrayList<TransactionInput> inputs = new ArrayList<>();
-    private ArrayList<TransactionOutput> outputs = new ArrayList<>();
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "input_id")
+    private List<TransactionInput> inputs = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "output_id")
+    private List<TransactionOutput> outputs = new ArrayList<>();
 
     private static BigInteger sequence = BigInteger.ZERO;
 

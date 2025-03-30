@@ -1,28 +1,42 @@
 package org.example.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 
 import java.security.*;
 import java.security.spec.ECGenParameterSpec;
+import java.util.Base64;
 
 @Entity
+@NoArgsConstructor
 @Setter
 @Getter
+@ToString
 public class Wallet {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String username;
+    @Transient
     private PrivateKey privateKey;
+    @Transient
     private PublicKey publicKey;
 
-    public Wallet() { generateKeyPair(); }
+    @Column(length = 2000)
+    private String privateKeyEncoded;
+
+    @Column(length = 2000)
+    private String publicKeyEncoded;
+
+    public Wallet(String username) {
+        this.username = username;
+        generateKeyPair();
+    }
 
     private void generateKeyPair() {
         try {
@@ -35,8 +49,11 @@ public class Wallet {
 
             privateKey = keyPair.getPrivate();
             publicKey = keyPair.getPublic();
+
+            privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
+            publicKeyEncoded = Base64.getEncoder().encodeToString(publicKey.getEncoded());
         } catch (Exception e) {
-            throw new RuntimeException("Key generation exception: " +e.getMessage());
+            throw new RuntimeException("Key generation exception: " + e.getMessage());
         }
     }
 }
