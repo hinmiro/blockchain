@@ -5,10 +5,7 @@ import org.example.entity.Wallet;
 import org.example.service.WalletService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -35,6 +32,21 @@ public class WalletController {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "creation of new wallet failed",
                     "message", e.getCause()
+            ));
+        }
+    }
+
+    @GetMapping("/{walletId}")
+    public ResponseEntity<?> getWallet(@PathVariable String walletId) {
+        try {
+            WalletDTO wallet = walletService.getWalletById(walletId);
+            return ResponseEntity.ok(Map.of(
+                    "walletId", wallet.getId(),
+                    "walletPublicKey", wallet.getPublicKeyEncoded()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "Error", "Bad wallet"
             ));
         }
     }

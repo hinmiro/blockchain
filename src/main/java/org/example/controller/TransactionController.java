@@ -1,5 +1,6 @@
 package org.example.controller;
 
+import org.example.dto.TransactionDTO;
 import org.example.entity.Block;
 import org.example.entity.Transaction;
 import org.example.service.TransactionService;
@@ -24,14 +25,14 @@ public class TransactionController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createTransaction(@RequestBody Transaction transaction) {
+    public ResponseEntity<?> createTransaction(@RequestBody TransactionDTO transaction) {
         System.out.println(transaction.toString());
         try {
             Block block = transactionService.processTransaction(transaction);
             return ResponseEntity.ok(Map.of(
                     "message", "Transaction processed successfully",
                     "blockhash", block.getHash(),
-                    "transactionId", transaction.getId()
+                    "transactionId", block.getTransactions()
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(

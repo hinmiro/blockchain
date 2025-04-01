@@ -2,6 +2,8 @@ package org.example.util;
 
 
 import java.security.*;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 public class StringUtil {
@@ -52,6 +54,33 @@ public class StringUtil {
     }
 
     public static String getStringFromKey(Key key) {
+        return Base64.getEncoder().encodeToString(key.getEncoded());
+    }
+
+    public static enum KeyType {
+        PUBLIC, PRIVATE
+    }
+
+    public static Key decodeKey(String encodedKey, KeyType type) {
+
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(encodedKey);
+            KeyFactory keyFactory = KeyFactory.getInstance("ECDSA", "BC");
+
+            if (type == KeyType.PUBLIC) {
+                X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+                return keyFactory.generatePublic(keySpec);
+            } else {
+                PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+                return keyFactory.generatePrivate(keySpec);
+            }
+
+        } catch (Exception e) {
+            throw new KeyDecodeException("Error in decoding keys: " + e.getMessage());
+        }
+    }
+
+    public static String encodeKey(Key key) {
         return Base64.getEncoder().encodeToString(key.getEncoded());
     }
 }

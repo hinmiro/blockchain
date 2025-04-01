@@ -24,8 +24,18 @@ public class Transaction {
     private Long id;
 
     private String transactionId;
+
+    @Transient
     private PublicKey sender;
+    @Transient
     private PublicKey recipient;
+
+    @Column(length = 2000)
+    private String encodedSenderPublicKey;
+
+    @Column(length = 2000)
+    private String encodedRecipientPublicKey;
+
     private double value;
     private long timestamp;
     private byte[] signature;

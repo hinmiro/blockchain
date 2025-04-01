@@ -5,10 +5,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.example.util.KeyDecodeException;
+import org.example.util.StringUtil;
 
 import java.security.*;
 import java.security.spec.ECGenParameterSpec;
-import java.util.Base64;
 
 @Entity
 @NoArgsConstructor
@@ -16,12 +17,12 @@ import java.util.Base64;
 @Getter
 @ToString
 public class Wallet {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private String id;
 
     private String username;
+    private Double value;
     @Transient
     private PrivateKey privateKey;
     @Transient
@@ -35,6 +36,7 @@ public class Wallet {
 
     public Wallet(String username) {
         this.username = username;
+        this.value = 0.00;
         generateKeyPair();
     }
 
@@ -50,10 +52,19 @@ public class Wallet {
             privateKey = keyPair.getPrivate();
             publicKey = keyPair.getPublic();
 
-            privateKeyEncoded = Base64.getEncoder().encodeToString(privateKey.getEncoded());
-            publicKeyEncoded = Base64.getEncoder().encodeToString(publicKey.getEncoded());
+            privateKeyEncoded = StringUtil.encodeKey(privateKey);
+            publicKeyEncoded = StringUtil.encodeKey(publicKey);
         } catch (Exception e) {
             throw new RuntimeException("Key generation exception: " + e.getMessage());
+        }
+    }
+
+    public void decodeKeys() {
+        try {
+            this.publicKey = (PublicKey) StringUtil.decodeKey(publicKeyEncoded, StringUtil.KeyType.PUBLIC);
+            this.privateKey = (PrivateKey) StringUtil.decodeKey(privateKeyEncoded, StringUtil.KeyType.PRIVATE);
+        } catch (Exception e) {
+            throw new KeyDecodeException("Corrupted key encoding: " + e.getMessage());
         }
     }
 }

@@ -18,6 +18,24 @@ public class WalletService {
 
     public Wallet addNewWallet(WalletDTO dto) {
         Wallet wallet = new Wallet(dto.getUsername());
+        System.out.println(wallet);
         return walletRepository.save(wallet);
+    }
+
+    public WalletDTO getWalletById(String uuid) {
+        try {
+            Wallet wallet = walletRepository.getWalletById(uuid);
+            wallet.decodeKeys();
+            System.out.println(wallet);
+            return convertToDTO(wallet);
+        } catch (Exception e) {
+            throw new RuntimeException("Wallet not found");
+        }
+    }
+
+    public WalletDTO convertToDTO(Wallet entity) {
+        WalletDTO conversion = new WalletDTO(entity.getId(), entity.getUsername(), entity.getPublicKeyEncoded(), entity.getValue());
+        System.out.println("Converted: " + conversion);
+        return conversion;
     }
 }
