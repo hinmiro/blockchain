@@ -40,10 +40,7 @@ public class WalletController {
     public ResponseEntity<?> getWallet(@PathVariable String walletId) {
         try {
             WalletDTO wallet = walletService.getWalletById(walletId);
-            return ResponseEntity.ok(Map.of(
-                    "walletId", wallet.getId(),
-                    "walletPublicKey", wallet.getPublicKeyEncoded()
-            ));
+            return ResponseEntity.ok(wallet);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "Error", "Bad wallet"

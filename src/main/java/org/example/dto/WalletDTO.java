@@ -1,5 +1,6 @@
 package org.example.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 @Getter
@@ -10,6 +11,7 @@ import lombok.*;
 public class WalletDTO {
     private String id;
     private String username;
+    @JsonIgnore
     private String publicKeyEncoded;
     private Double value;
 
