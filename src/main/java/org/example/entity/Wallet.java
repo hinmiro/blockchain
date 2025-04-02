@@ -10,6 +10,8 @@ import org.example.util.StringUtil;
 
 import java.security.*;
 import java.security.spec.ECGenParameterSpec;
+import java.util.HashMap;
+import java.util.Map;
 
 @Entity
 @NoArgsConstructor
@@ -34,9 +36,11 @@ public class Wallet {
     @Column(length = 2000)
     private String publicKeyEncoded;
 
+    @Transient
+    private Map<String, TransactionOutput> UTXOs = new HashMap<>();
+
     public Wallet(String username) {
         this.username = username;
-        this.value = 0.00;
         generateKeyPair();
     }
 
@@ -65,6 +69,23 @@ public class Wallet {
             this.privateKey = (PrivateKey) StringUtil.decodeKey(privateKeyEncoded, StringUtil.KeyType.PRIVATE);
         } catch (Exception e) {
             throw new KeyDecodeException("Corrupted key encoding: " + e.getMessage());
+        }
+    }
+
+    public double getBalance() {
+        double total = 0;
+        for (TransactionOutput utxo : UTXOs.values()) {
+            total += utxo.getValue();
+        }
+        return total;
+    }
+
+    public void updateUTXOs(Map<String, TransactionOutput> globalUTXOs) {
+        UTXOs.clear();
+        for (TransactionOutput output : globalUTXOs.values()) {
+            if (output.isMine(publicKey)) {
+                UTXOs.put(output.getId(), output);
+            }
         }
     }
 }

@@ -20,9 +20,6 @@ import java.util.List;
 @NoArgsConstructor
 public class Transaction {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     private String transactionId;
 
     @Transient
@@ -37,17 +34,16 @@ public class Transaction {
     private String encodedRecipientPublicKey;
 
     private double value;
-    private long timestamp;
+    @Column(columnDefinition = "BINARY(64)")
     private byte[] signature;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "input_id")
+    @OneToMany(mappedBy = "transaction",cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TransactionInput> inputs = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "output_id")
     private List<TransactionOutput> outputs = new ArrayList<>();
 
+    private long timestamp;
     private static BigInteger sequence = BigInteger.ZERO;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -55,17 +51,19 @@ public class Transaction {
     private Block block;
 
 
-    public Transaction(PublicKey from, PublicKey to, double value, ArrayList<TransactionInput> inputs) {
+    public Transaction(PublicKey from, PublicKey to, double value, List<TransactionInput> inputs) {
         this.sender = from;
+        this.encodedSenderPublicKey = StringUtil.encodeKey(from);
         this.recipient = to;
+        this.encodedRecipientPublicKey = StringUtil.encodeKey(to);
         this.value = value;
         this.inputs = inputs;
         this.timestamp = System.currentTimeMillis();
+        this.transactionId = calculateHash();
     }
 
     public String calculateHash() {
         sequence = sequence.add(BigInteger.ONE);
-
         return StringUtil.apply(
                 StringUtil.getStringFromKey(sender) +
                         StringUtil.getStringFromKey(recipient) +

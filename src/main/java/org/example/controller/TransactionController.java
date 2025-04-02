@@ -1,8 +1,7 @@
 package org.example.controller;
 
 import org.example.dto.TransactionDTO;
-import org.example.entity.Block;
-import org.example.entity.Transaction;
+import org.example.dto.TransactionRequest;
 import org.example.service.TransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -25,12 +24,15 @@ public class TransactionController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createTransaction(@RequestBody TransactionDTO transaction) {
-        System.out.println(transaction.toString());
+    public ResponseEntity<?> createTransaction(@RequestBody TransactionRequest request) {
         try {
-            TransactionDTO t = transactionService.processTransaction(transaction);
-            System.out.println("Block ready: " + t);
-            return ResponseEntity.ok(t);
+            System.out.println("TRANSACTION STARTING");
+            TransactionDTO result = transactionService.processTransaction(
+                    request.getSenderId(),
+                    request.getRecipientId(),
+                    request.getAmount()
+            );
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "Transaction failed",
