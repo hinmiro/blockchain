@@ -3,6 +3,7 @@ package org.example.service;
 import org.example.dto.TransactionDTO;
 import org.example.entity.Block;
 import org.example.entity.Transaction;
+import org.example.entity.Wallet;
 import org.example.repository.BlockRepository;
 import org.example.repository.TransactionRepository;
 import org.example.repository.WalletRepository;
@@ -36,7 +37,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public Block processTransaction(TransactionDTO dto) {
+    public TransactionDTO processTransaction(TransactionDTO dto) {
 
         // Check validity of blockchain
         if (!isChainValid()) {
@@ -67,8 +68,17 @@ public class TransactionService {
 
         transaction.setBlock(newBlock);
 
+        // Transaction signing
+        Wallet senderWallet = walletRepository.getWalletByPublicKeyEncoded(dto.getSender());
+        PrivateKey senderPrivateKey = (PrivateKey) StringUtil.decodeKey(senderWallet.getPrivateKeyEncoded(), StringUtil.KeyType.PRIVATE);
+        transaction.generateSignature(senderPrivateKey);
+
+        // Check verifying
+        transaction.verifySignature();
+
         transactionRepository.save(transaction);
-        return blockRepository.save(newBlock);
+        blockRepository.save(newBlock);
+        return TransactionDTO.fromTransaction(transaction);
     }
 
     public Transaction getTransaction(Integer id) {
@@ -103,9 +113,10 @@ public class TransactionService {
     }
 
     public Transaction convertToEntity(TransactionDTO dto) {
+        System.out.println("CONVERSION START");
         PublicKey recipientKey = (PublicKey) StringUtil.decodeKey(dto.getRecipient(), StringUtil.KeyType.PUBLIC);
         PublicKey senderKey = (PublicKey) StringUtil.decodeKey(dto.getSender(), StringUtil.KeyType.PUBLIC);
-
+        System.out.println("Conversion done");
         return new Transaction(senderKey, recipientKey, dto.getValue(), null);
     }
 }

@@ -28,12 +28,9 @@ public class TransactionController {
     public ResponseEntity<?> createTransaction(@RequestBody TransactionDTO transaction) {
         System.out.println(transaction.toString());
         try {
-            Block block = transactionService.processTransaction(transaction);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Transaction processed successfully",
-                    "blockhash", block.getHash(),
-                    "transactionId", block.getTransactions()
-            ));
+            TransactionDTO t = transactionService.processTransaction(transaction);
+            System.out.println("Block ready: " + t);
+            return ResponseEntity.ok(t);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "Transaction failed",
