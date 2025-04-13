@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.util.StringUtil;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Entity
@@ -42,17 +43,25 @@ public class Block {
 
     public String applyHash() {
         StringBuilder transactionData = new StringBuilder();
-        for (Transaction tx : transactions) {
-            transactionData.append(tx.getSender())
-                    .append(tx.getRecipient())
-                    .append(tx.getValue())
-                    .append(tx.getTimestamp());
+
+        // Sort transactions by ID to ensure consistent ordering
+        List<Transaction> sortedTransactions = new ArrayList<>();
+        if (transactions != null) {
+            sortedTransactions.addAll(transactions);
+            sortedTransactions.sort(Comparator.comparing(Transaction::getTransactionId));
         }
 
-        return StringUtil.apply(previousHash +
-                Long.toString(timestamp) +
-                Integer.toString(nonce) +
-                transactionData.toString());
+        // Build transaction data string in sorted order
+        for (Transaction tx : sortedTransactions) {
+            transactionData.append(tx.getTransactionId());
+        }
+
+        return StringUtil.apply(
+                previousHash +
+                        Long.toString(timestamp) +
+                        Integer.toString(nonce) +
+                        transactionData.toString()
+        );
     }
 
     public void mineBlock(int difficulty) {

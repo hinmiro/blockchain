@@ -54,7 +54,15 @@ public class StringUtil {
     }
 
     public static String getStringFromKey(Key key) {
-        return Base64.getEncoder().encodeToString(key.getEncoded());
+        if (key == null) {
+            return null;
+        }
+        try {
+            byte[] encoded = key.getEncoded();
+            return Base64.getEncoder().encodeToString(encoded);
+        } catch (Exception e) {
+            throw new RuntimeException("Error encoding key", e);
+        }
     }
 
     public static enum KeyType {

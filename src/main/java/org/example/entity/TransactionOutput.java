@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.example.util.KeyDecodeException;
 import org.example.util.StringUtil;
 
@@ -13,6 +14,7 @@ import java.security.PublicKey;
 @NoArgsConstructor
 @Getter
 @Setter
+@Slf4j
 public class TransactionOutput {
     @Id
     @Column(name = "output_id")
@@ -45,6 +47,28 @@ public class TransactionOutput {
     }
 
     public boolean isMine(PublicKey publicKey) {
-        return (publicKey != null && publicKey.equals(recipient));
+        if (publicKey == null) {
+            return false;
+        }
+
+        try {
+            // First compare encoded values using StringUtil.encodeKey
+            String publicKeyEncoded = StringUtil.encodeKey(publicKey);
+            if (recipientEncoded.equals(publicKeyEncoded)) {
+                return true;
+            }
+
+            // As a backup, if we have the actual recipient decoded, try direct comparison
+            if (this.recipient != null) {
+                String recipientString = StringUtil.getStringFromKey(this.recipient);
+                String inputString = StringUtil.getStringFromKey(publicKey);
+                return recipientString.equals(inputString);
+            }
+
+            return false;
+        } catch (Exception e) {
+            log.error("Error in isMine method: {}", e.getMessage());
+            return false;
+        }
     }
 }
