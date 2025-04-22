@@ -24,6 +24,7 @@ public class Wallet {
     private String id;
 
     private String username;
+    @Transient
     private Double value;
     @Transient
     private PrivateKey privateKey;

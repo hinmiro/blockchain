@@ -2,11 +2,18 @@ package org.example.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import org.example.dto.WalletDTO;
+import org.example.entity.Transaction;
+import org.example.entity.TransactionInput;
+import org.example.entity.TransactionOutput;
 import org.example.entity.Wallet;
 import org.example.repository.TransactionRepository;
 import org.example.repository.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Service
 public class WalletService {
@@ -30,6 +37,9 @@ public class WalletService {
         try {
             Wallet wallet = walletRepository.getWalletById(uuid).orElseThrow(() -> new EntityNotFoundException("Wallet not found"));
             wallet.decodeKeys();
+            double currentValue = calculateWalletValue(wallet);
+            wallet.setValue(currentValue);
+
             return convertToDTO(wallet);
         } catch (Exception e) {
             throw new RuntimeException("Wallet not found");
@@ -37,15 +47,32 @@ public class WalletService {
     }
 
     public WalletDTO convertToDTO(Wallet entity) {
-        WalletDTO conversion = new WalletDTO(entity.getId(), entity.getUsername(), entity.getPublicKeyEncoded(), entity.getValue());
-        conversion.setValue(calculateWalletBalance(conversion.getId()));
-        return conversion;
+        return new WalletDTO(entity.getId(), entity.getUsername(), entity.getPublicKeyEncoded(), entity.getValue());
     }
 
-    private Double calculateWalletBalance(String walletId) {
-        Double incoming = transactionRepository.sumIncomingTransactions(walletId);
-        Double outgoing = transactionRepository.sumOutgoingTransactions(walletId);
 
-        return incoming - outgoing;
+    private double calculateWalletValue(Wallet wallet) {
+        List<Transaction> transactions = transactionRepository.findAllTransactionOutputsByPublicKey(wallet.getPublicKeyEncoded());
+
+        Set<TransactionOutput> allOutputs = new HashSet<>();
+        Set<String> spentOutputIds = new HashSet<>();
+
+        // Collect all outputs for this wallet
+        for (Transaction tx : transactions) {
+            for (TransactionInput input : tx.getInputs()) {
+                spentOutputIds.add(input.getTransactionOutputId());
+            }
+        }
+
+        double totalValue = 0.0;
+        for (Transaction tx : transactions) {
+            for (TransactionOutput output : tx.getOutputs()) {
+                if (output.getRecipientEncoded().equals(wallet.getPublicKeyEncoded()) && !spentOutputIds.contains(output.getId())) {
+                    totalValue += output.getValue();
+                }
+            }
+        }
+        return  totalValue;
     }
+
 }

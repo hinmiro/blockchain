@@ -165,7 +165,7 @@ public class TransactionService {
                 TransactionOutput utxo = entry.getValue();
                 log.debug("UTXO {}: Recipient encoded: {}, Is mine check: {}",
                         count++, utxo.getRecipientEncoded(), utxo.isMine(senderPublicKey));
-                if (count > 10) break; // Limit logging
+                if (count > 10) break;
             }
         }
 
@@ -299,6 +299,8 @@ public class TransactionService {
                 genesisTx.setTransactionId(UUID.randomUUID().toString());
                 genesisTx.setBlock(genesisBlock);
                 genesisTx.setTimestamp(System.currentTimeMillis());
+                genesisTx.setEncodedRecipientPublicKey(wallet.getPublicKeyEncoded());
+                genesisTx.setEncodedSenderPublicKey("Genesis");
 
                 // Create output to this wallet
                 TransactionOutput output = new TransactionOutput(
