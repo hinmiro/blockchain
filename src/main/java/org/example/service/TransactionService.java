@@ -119,18 +119,9 @@ public class TransactionService {
 
             newTransaction.setSignature(Base64.getDecoder().decode(transactionSignature));
 
-
-            // Verify transaction signature
-//            byte[] signatureBytes = Base64.getDecoder().decode(transactionSignature);
             if (!newTransaction.verifySignature()) {
                 throw new BlockchainException("Transaction signature verification failed");
             }
-
-//            // Verify inputs and create outputs
-//            double inputSum = processTransactionInputs(newTransaction, senderWallet.getPublicKeyEncoded());
-//            if (inputSum < amount) {
-//                throw new BlockchainException("Insufficient funds");
-//            }
 
             createTransactionOutputs(newTransaction, senderWallet.getPublicKeyEncoded(), recipientWallet.getPublicKeyEncoded(), amount, currentSum);
 

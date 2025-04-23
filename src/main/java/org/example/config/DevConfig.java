@@ -1,14 +1,11 @@
 package org.example.config;
 
-import jakarta.annotation.PostConstruct;
 import org.example.dto.WalletDTO;
-import org.example.entity.Transaction;
-import org.example.entity.TransactionInput;
+
 import org.example.entity.TransactionOutput;
 import org.example.entity.Wallet;
 import org.example.repository.TransactionOutputRepository;
 import org.example.service.WalletService;
-import org.example.util.SecuritySignatureVerification;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationEventPublisher;
@@ -17,7 +14,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.Base64;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Configuration
 public class DevConfig {
@@ -76,8 +72,6 @@ public class DevConfig {
                     "    \"inputTransactionIds\": " + inputIds + ",\n" +
                     "    \"signature\": \"" + testSignature + "\"\n" +
                     "}");
-
-
         };
     }
 }

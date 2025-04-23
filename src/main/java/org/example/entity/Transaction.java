@@ -34,6 +34,7 @@ public class Transaction {
     private String encodedRecipientPublicKey;
 
     private double value;
+
     @Column(columnDefinition = "BINARY(64)")
     private byte[] signature;
 
