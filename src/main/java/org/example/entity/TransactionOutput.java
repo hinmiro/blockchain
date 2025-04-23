@@ -30,12 +30,23 @@ public class TransactionOutput {
     private String parentTransactionId;
 
 
-    public TransactionOutput(PublicKey recipient, double value, String parentTransactionId) {
-        this.recipient = recipient;
-        this.recipientEncoded = StringUtil.encodeKey(recipient);
+    public TransactionOutput(String recipientEncoded, double value, String parentTransactionId) {
+        this.recipientEncoded = recipientEncoded;
         this.value = value;
         this.parentTransactionId = parentTransactionId;
-        this.id = StringUtil.apply(StringUtil.getStringFromKey(recipient) + Double.toString(value) + parentTransactionId);
+
+        try {
+            // First decode the recipient
+            this.recipient = (PublicKey) StringUtil.decodeKey(recipientEncoded, StringUtil.KeyType.PUBLIC);
+            // Then generate the ID using the decoded recipient
+            this.id = StringUtil.apply(StringUtil.getStringFromKey(this.recipient) +
+                    Double.toString(value) +
+                    parentTransactionId);
+        } catch (Exception e) {
+            throw new KeyDecodeException("Error decoding recipient key: " + e.getMessage());
+        }
+
+
     }
 
     public void decodeRecipient() {
@@ -46,29 +57,10 @@ public class TransactionOutput {
         }
     }
 
-    public boolean isMine(PublicKey publicKey) {
+    public boolean isMine(String publicKey) {
         if (publicKey == null) {
             return false;
         }
-
-        try {
-            // First compare encoded values using StringUtil.encodeKey
-            String publicKeyEncoded = StringUtil.encodeKey(publicKey);
-            if (recipientEncoded.equals(publicKeyEncoded)) {
-                return true;
-            }
-
-            // As a backup, if we have the actual recipient decoded, try direct comparison
-            if (this.recipient != null) {
-                String recipientString = StringUtil.getStringFromKey(this.recipient);
-                String inputString = StringUtil.getStringFromKey(publicKey);
-                return recipientString.equals(inputString);
-            }
-
-            return false;
-        } catch (Exception e) {
-            log.error("Error in isMine method: {}", e.getMessage());
-            return false;
-        }
+        return recipientEncoded.equals(publicKey);
     }
 }

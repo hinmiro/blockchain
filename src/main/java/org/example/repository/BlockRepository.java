@@ -11,7 +11,7 @@ import java.util.Optional;
 
 @Repository
 public interface BlockRepository extends JpaRepository<Block, String> {
-    Block findTopByOrderByTimestampDesc();
+    Optional<Block> findTopByOrderByTimestampDesc();
     Optional<Block> findTopByOrderByTimestampAsc();
     List<Block> findAllByOrderByTimestampAsc();
 

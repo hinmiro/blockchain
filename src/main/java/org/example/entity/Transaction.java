@@ -78,7 +78,13 @@ public class Transaction {
     }
 
     public boolean verifySignature() {
-        String data = StringUtil.getStringFromKey(sender) + StringUtil.getStringFromKey(recipient) + Double.toString(value);
-        return StringUtil.verifyECDSASig(sender, data, signature);
+        String data = encodedSenderPublicKey + encodedRecipientPublicKey + Double.toString(value);
+        try {
+            PublicKey senderPublicKey = (PublicKey) StringUtil.decodeKey(encodedSenderPublicKey, StringUtil.KeyType.PUBLIC);
+            return StringUtil.verifyECDSASig(senderPublicKey, data, this.signature);
+        } catch (Exception e) {
+            return false;
+        }
+
     }
 }

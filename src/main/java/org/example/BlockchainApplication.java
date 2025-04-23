@@ -1,12 +1,12 @@
 package org.example;
 
-import org.example.entity.TransactionOutput;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.security.Security;
-import java.util.HashMap;
 
+@EnableScheduling
 @SpringBootApplication
 public class BlockchainApplication {
     static {

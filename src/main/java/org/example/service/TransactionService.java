@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.example.config.WalletsCreatedEvent;
 import org.example.dto.TransactionDTO;
+import org.example.dto.WalletDTO;
 import org.example.entity.*;
 import org.example.repository.BlockRepository;
 import org.example.repository.TransactionOutputRepository;
@@ -11,14 +12,12 @@ import org.example.repository.TransactionRepository;
 import org.example.repository.WalletRepository;
 import org.example.util.BlockchainException;
 import org.example.util.StringUtil;
-import org.example.util.TransactionForgeryException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,11 +30,15 @@ public class TransactionService {
     private final BlockRepository blockRepository;
     private final WalletRepository walletRepository;
     private final TransactionOutputRepository outputRepository;
+    private final WalletService walletService;
+    private final TransactionOutputRepository transactionOutputRepository;
+    private final MempoolService mempoolService;
 
     private Map<String, TransactionOutput> UTXOs = new HashMap<>();
 
-    @Value("${blockchain.difficulty:1}")
-    private Integer difficulty;
+    @Value("${blockchain.block.difficulty}")
+    private int difficulty;
+
 
     @Value("${blockchain.genesis.enabled:true}")
     private boolean genesisEnabled;
@@ -44,11 +47,14 @@ public class TransactionService {
     private double genesisAmount;
 
     @Autowired
-    public TransactionService(TransactionRepository transactionRepository, BlockRepository blockRepository, WalletRepository walletRepository, TransactionOutputRepository outputRepository) {
+    public TransactionService(TransactionRepository transactionRepository, BlockRepository blockRepository, WalletRepository walletRepository, TransactionOutputRepository outputRepository, WalletService walletService, TransactionOutputRepository transactionOutputRepository, MempoolService mempoolService) {
         this.transactionRepository = transactionRepository;
         this.blockRepository = blockRepository;
         this.walletRepository = walletRepository;
         this.outputRepository = outputRepository;
+        this.walletService = walletService;
+        this.transactionOutputRepository = transactionOutputRepository;
+        this.mempoolService = mempoolService;
     }
 
     @PostConstruct
@@ -72,161 +78,135 @@ public class TransactionService {
     }
 
     @Transactional
-    public TransactionDTO processTransaction(String senderId, String recipientId, double amount) {
-        // Check validity of blockchain
+    public TransactionDTO processTransaction(String senderId, String recipientId, double amount, String transactionSignature) {
+        // Check validity of the blockchain
         if (!isChainValid()) {
             throw new BlockchainException("Cannot process transaction: blockchain integrity compromised");
         }
 
-        // Get and validate wallets
-        Wallet senderWallet = walletRepository.findById(senderId).orElseThrow(() -> new IllegalArgumentException("Sender wallet not found"));
-        Wallet recipientWallet = walletRepository.findById(recipientId).orElseThrow(() -> new IllegalArgumentException("Recipient wallet not found"));
+        try {
+            // Get and validate wallets
+            WalletDTO senderWallet = walletService.getWalletById(senderId);
+            WalletDTO recipientWallet = walletService.getWalletById(recipientId);
 
-        senderWallet.decodeKeys();
-        recipientWallet.decodeKeys();
+            // Create transaction input from utxos
+            List<TransactionOutput> availableUTXOs = transactionOutputRepository.findUnspentOutputsByWalletId(senderId);
+            double availableBalance = availableUTXOs.stream().mapToDouble(TransactionOutput::getValue).sum();
 
-        if (!transactionKeyCheck(senderWallet.getPublicKeyEncoded(), recipientWallet.getPublicKeyEncoded())) {
-            throw new TransactionForgeryException("Transactions forgery attempt");
+            if (availableBalance < amount) {
+                throw new BlockchainException("Insufficient funds. Available: " + availableBalance + ", Required: " + amount);
+            }
+
+            // Select UTXOs for this transaction
+            double currentSum = 0;
+            List<TransactionInput> selectedInputs = new ArrayList<>();
+            for (TransactionOutput utxo : availableUTXOs) {
+                currentSum += utxo.getValue();
+                selectedInputs.add(new TransactionInput(utxo.getId()));
+                if (currentSum >= amount) {
+                    break;
+                }
+            }
+
+
+            // Create and verify transaction
+            Transaction newTransaction = new Transaction(
+                    (PublicKey) StringUtil.decodeKey(senderWallet.getPublicKeyEncoded(), StringUtil.KeyType.PUBLIC),
+                    (PublicKey) StringUtil.decodeKey(recipientWallet.getPublicKeyEncoded(), StringUtil.KeyType.PUBLIC),
+                    amount,
+                    selectedInputs
+            );
+
+            newTransaction.setSignature(Base64.getDecoder().decode(transactionSignature));
+
+
+            // Verify transaction signature
+//            byte[] signatureBytes = Base64.getDecoder().decode(transactionSignature);
+            if (!newTransaction.verifySignature()) {
+                throw new BlockchainException("Transaction signature verification failed");
+            }
+
+//            // Verify inputs and create outputs
+//            double inputSum = processTransactionInputs(newTransaction, senderWallet.getPublicKeyEncoded());
+//            if (inputSum < amount) {
+//                throw new BlockchainException("Insufficient funds");
+//            }
+
+            createTransactionOutputs(newTransaction, senderWallet.getPublicKeyEncoded(), recipientWallet.getPublicKeyEncoded(), amount, currentSum);
+
+            Transaction savedTransaction = transactionRepository.save(newTransaction);
+
+            // Save each output
+            for (TransactionOutput output : savedTransaction.getOutputs()) {
+                outputRepository.save(output);
+                UTXOs.put(output.getId(), output);
+            }
+
+            mempoolService.addTransaction(newTransaction);
+
+            // Create a new block and mine it
+            // Block block = createBlockForTransaction(newTransaction);
+
+            return convertToDto(newTransaction);
+        } catch (Exception e) {
+            throw new RuntimeException("Transaction processing failed: " + e.getMessage());
         }
-
-        // Create transaction
-        Transaction transaction = new Transaction(
-                senderWallet.getPublicKey(),
-                recipientWallet.getPublicKey(),
-                amount, null
-        );
-
-        // Find and collect inputs
-        List<TransactionInput> inputs = new ArrayList<>();
-        double inputTotal = collectInputsForTransaction(senderWallet.getPublicKey(), amount, inputs);
-
-        if (inputTotal < amount) {
-            throw new TransactionForgeryException("Insufficient funds: " + inputTotal);
-        }
-
-        transaction.setInputs(inputs);
-
-        for (TransactionInput input : inputs) {
-            input.setTransaction(transaction);
-        }
-
-        // Sign transaction
-        PrivateKey senderPrivateKey = (PrivateKey) StringUtil.decodeKey(senderWallet.getPrivateKeyEncoded(), StringUtil.KeyType.PRIVATE);
-        transaction.generateSignature(senderPrivateKey);
-
-        if (!transaction.verifySignature()) {
-            throw new TransactionForgeryException("Transaction signature failed to verify");
-        }
-
-        // Generate outputs
-        double leftOver = inputTotal - amount;
-        createTransactionOutputs(transaction, amount, leftOver);
-
-        // Add to blockchain
-        Block newBlock = createBlockForTransaction(transaction);
-
-        // Update UTXO pool
-        updateUTXOPool(transaction);
-
-        return TransactionDTO.fromTransaction(transaction);
     }
 
-    private double collectInputsForTransaction(PublicKey senderPublicKey, double targetAmount, List<TransactionInput> inputs) {
-        double total = 0;
-        int utxoCount = 0;
-        int totalUTXOs = UTXOs.size();
 
-        log.info("Collecting inputs for transaction. Target amount: {}", targetAmount);
-        log.info("Total UTXOs in pool: {}", totalUTXOs);
-
-        for (Map.Entry<String, TransactionOutput> entry : UTXOs.entrySet()) {
-            TransactionOutput utxo = entry.getValue();
-            boolean isMine = utxo.isMine(senderPublicKey);
-
-            if (isMine) {
-                utxoCount++;
-                total += utxo.getValue();
-                inputs.add(new TransactionInput(utxo.getId()));
-                log.debug("Added UTXO {} to inputs. Value: {}, Running total: {}",
-                        utxo.getId(), utxo.getValue(), total);
-                if (total >= targetAmount) break;
-            }
-        }
-
-        log.info("Found {} UTXOs for wallet, total value: {}", utxoCount, total);
-
-        if (utxoCount == 0) {
-            // Debug the UTXOs for troubleshooting
-            log.warn("No UTXOs found for this wallet. Public key: {}",
-                    StringUtil.getStringFromKey(senderPublicKey));
-
-            int count = 0;
-            for (Map.Entry<String, TransactionOutput> entry : UTXOs.entrySet()) {
-                TransactionOutput utxo = entry.getValue();
-                log.debug("UTXO {}: Recipient encoded: {}, Is mine check: {}",
-                        count++, utxo.getRecipientEncoded(), utxo.isMine(senderPublicKey));
-                if (count > 10) break;
-            }
-        }
-
-        return total;
+    private double processTransactionInputs(Transaction transaction, String senderPublicKey) {
+        return transaction.getInputs().stream()
+                .map(input -> transactionOutputRepository.findById(input.getTransactionOutputId()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(output -> output.isMine(senderPublicKey))
+                .mapToDouble(TransactionOutput::getValue)
+                .sum();
     }
 
-    private void createTransactionOutputs(Transaction transaction, double amount, double leftOver) {
-        // Output to recipient
-        TransactionOutput outputToRecipient = new TransactionOutput(
-                transaction.getRecipient(),
+
+    private void createTransactionOutputs(Transaction transaction, String senderPublicKey, String recipientPublicKey, double amount, double inputSum) {
+        // Create output for a recipient
+        transaction.getOutputs().add(new TransactionOutput(
+                recipientPublicKey,
                 amount,
                 transaction.getTransactionId()
-        );
-        transaction.getOutputs().add(outputToRecipient);
+        ));
 
-        // Change back to sender if needed
-        if (leftOver > 0) {
-            TransactionOutput outputToSender = new TransactionOutput(
-                    transaction.getSender(),
-                    leftOver,
+        // Create changes if needed
+        double change = inputSum - amount;
+        if (change > 0) {
+            transaction.getOutputs().add(new TransactionOutput(
+                    senderPublicKey,
+                    change,
                     transaction.getTransactionId()
-            );
-            transaction.getOutputs().add(outputToSender);
+            ));
         }
+
+
     }
 
-    private Block createBlockForTransaction(Transaction transaction) {
-        Block latestBlock = blockRepository.findTopByOrderByTimestampDesc();
-        String previousHash = latestBlock != null ? latestBlock.getHash() : "0";
+    @Transactional
+    protected Block createBlockForTransaction(Transaction transaction) {
+        // Find the latest block
+        Block latestBlock = blockRepository.findTopByOrderByTimestampDesc()
+                .orElseThrow(() -> new RuntimeException("Genesis block not found"));
 
-        Block newBlock = new Block(previousHash);
+        // Create new block
+        Block newBlock = new Block(latestBlock.getHash());
         newBlock.addTransaction(transaction);
+
+        // Mine the block
+        log.info("Mining block for transaction: {}", transaction.getTransactionId());
         newBlock.mineBlock(difficulty);
 
+        // Save block and update transaction
         Block savedBlock = blockRepository.save(newBlock);
         transaction.setBlock(savedBlock);
         transactionRepository.save(transaction);
 
+        log.info("Block created and mined: {}", savedBlock.getHash());
         return savedBlock;
-    }
-
-    private void updateUTXOPool(Transaction transaction) {
-        // Remove spent outputs
-        for (TransactionInput input : transaction.getInputs()) {
-            TransactionOutput removed = UTXOs.remove(input.getTransactionOutputId());
-            log.info("Removed UTXO: {} with value {}",
-                    input.getTransactionOutputId(),
-                    removed != null ? removed.getValue() : "null");
-        }
-
-        // Add new outputs
-        for (TransactionOutput output : transaction.getOutputs()) {
-            TransactionOutput savedOutput = outputRepository.save(output);
-            UTXOs.put(savedOutput.getId(), savedOutput);
-            log.info("Added UTXO: {} with value {} for recipient {}",
-                    savedOutput.getId(),
-                    savedOutput.getValue(),
-                    savedOutput.getRecipientEncoded().substring(0, 20) + "...");
-        }
-
-        log.info("UTXO pool now contains {} outputs", UTXOs.size());
     }
 
 
@@ -264,9 +244,6 @@ public class TransactionService {
         return true;
     }
 
-    private boolean transactionKeyCheck(String senderKey, String recipientKey) {
-        return walletRepository.existsByPublicKeyEncoded(senderKey) && walletRepository.existsByPublicKeyEncoded(recipientKey);
-    }
 
     public Transaction convertToEntity(TransactionDTO dto) {
         PublicKey recipientKey = (PublicKey) StringUtil.decodeKey(dto.getRecipient(), StringUtil.KeyType.PUBLIC);
@@ -287,12 +264,16 @@ public class TransactionService {
 
             Block genesisBlock = blockRepository.findTopByOrderByTimestampAsc()
                     .orElseGet(() -> {
+                        log.info("Creating new genesis block");
                         Block newBlock = new Block("0");
                         return blockRepository.save(newBlock);
                     });
 
             for (Wallet wallet : wallets) {
                 wallet.decodeKeys();
+                log.info("Creating genesis transaction for wallet: {} with public key: {}",
+                        wallet.getId(), wallet.getPublicKeyEncoded());
+
 
                 // Create a coinbase transaction (no inputs, only outputs)
                 Transaction genesisTx = new Transaction();
@@ -304,7 +285,7 @@ public class TransactionService {
 
                 // Create output to this wallet
                 TransactionOutput output = new TransactionOutput(
-                        wallet.getPublicKey(),
+                        wallet.getPublicKeyEncoded(),
                         genesisAmount,
                         genesisTx.getTransactionId()
                 );
@@ -336,5 +317,9 @@ public class TransactionService {
         return transactions.stream()
                 .map(TransactionDTO::fromTransaction)
                 .collect(Collectors.toList());
+    }
+
+    private TransactionDTO convertToDto(Transaction transaction) {
+        return TransactionDTO.fromTransaction(transaction);
     }
 }

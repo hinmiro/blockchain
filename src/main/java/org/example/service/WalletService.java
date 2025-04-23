@@ -1,6 +1,7 @@
 package org.example.service;
 
 import jakarta.persistence.EntityNotFoundException;
+import org.example.config.WalletsCreatedEvent;
 import org.example.dto.WalletDTO;
 import org.example.entity.Transaction;
 import org.example.entity.TransactionInput;
@@ -9,6 +10,7 @@ import org.example.entity.Wallet;
 import org.example.repository.TransactionRepository;
 import org.example.repository.WalletRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
@@ -30,7 +32,9 @@ public class WalletService {
     public Wallet addNewWallet(WalletDTO dto) {
         Wallet wallet = new Wallet(dto.getUsername());
         System.out.println(wallet);
-        return walletRepository.save(wallet);
+        wallet = walletRepository.save(wallet);
+        return wallet;
+
     }
 
     public WalletDTO getWalletById(String uuid) {

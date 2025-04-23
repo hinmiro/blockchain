@@ -27,12 +27,7 @@ public class Wallet {
     @Transient
     private Double value;
     @Transient
-    private PrivateKey privateKey;
-    @Transient
     private PublicKey publicKey;
-
-    @Column(length = 2000)
-    private String privateKeyEncoded;
 
     @Column(length = 2000)
     private String publicKeyEncoded;
@@ -54,10 +49,8 @@ public class Wallet {
             keyGen.initialize(ecSpec, random);
             KeyPair keyPair = keyGen.generateKeyPair();
 
-            privateKey = keyPair.getPrivate();
             publicKey = keyPair.getPublic();
 
-            privateKeyEncoded = StringUtil.encodeKey(privateKey);
             publicKeyEncoded = StringUtil.encodeKey(publicKey);
         } catch (Exception e) {
             throw new RuntimeException("Key generation exception: " + e.getMessage());
@@ -67,7 +60,6 @@ public class Wallet {
     public void decodeKeys() {
         try {
             this.publicKey = (PublicKey) StringUtil.decodeKey(publicKeyEncoded, StringUtil.KeyType.PUBLIC);
-            this.privateKey = (PrivateKey) StringUtil.decodeKey(privateKeyEncoded, StringUtil.KeyType.PRIVATE);
         } catch (Exception e) {
             throw new KeyDecodeException("Corrupted key encoding: " + e.getMessage());
         }
@@ -84,7 +76,7 @@ public class Wallet {
     public void updateUTXOs(Map<String, TransactionOutput> globalUTXOs) {
         UTXOs.clear();
         for (TransactionOutput output : globalUTXOs.values()) {
-            if (output.isMine(publicKey)) {
+            if (output.isMine(StringUtil.encodeKey(publicKey))) {
                 UTXOs.put(output.getId(), output);
             }
         }
